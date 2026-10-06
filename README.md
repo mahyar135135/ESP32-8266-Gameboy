@@ -1,15 +1,17 @@
-# ESP8266 OLED Console
+# ESP8266 OLED Console - v1.2.0 "Duel"
 
-Twelve games plus a settings menu for an **ESP8266 (NodeMCU)** with a **0.96" 128x64 SSD1306 I2C OLED** and **5 buttons**.
+Eighteen games plus a settings menu for an **ESP8266 (NodeMCU)** with a **0.96" 128x64 SSD1306 I2C OLED** and **5 buttons**.
 Built on your original `sketch_oct27a.ino` (Dino Run, Flappy, Pong, Breakout, EEPROM high scores, same SELECT-hold-to-leave idea).
 
-Games: Dino Run, Flappy, Pong, Breakout, Snake, Blocks (falling-block puzzle), Invaders, and (v1.1) **Mines, Connect 4, TicTacToe, Muncher (maze chase), Tanks (artillery duel)**.
+One-player games: Dino Run, Flappy, Pong, Breakout, Snake, Blocks, Invaders, Mines, Connect 4, TicTacToe (vs CPU), Muncher, Tanks (vs CPU).
+**Two-player games (new in 1.2, each is its own app in the menu):** Pong 2P, Connect 2P, TicTac 2P, Tanks 2P, Cycles 2P, Reversi 2P.
 
 ## Verification status (please read)
-* Version 1.0 (the first seven games) was compiled with arduino-cli for `esp8266:esp8266:nodemcuv2`
-  (core 3.1.2, Adafruit GFX 1.12.6, SSD1306 2.5.17, BusIO 1.17.4) and you reported it works on hardware.
-* **Version 1.1 changes (the five new games, storage migration, game-over review stage, Dino and Pong fixes)
-  were written carefully but have NOT been compiled or run.** If the compiler reports an error, please send me the message.
+* Versions 1.0 and 1.1 were compiled and you confirmed they work on hardware.
+* **Version 1.2 (six 2-player games, new sounds, new settings, bigger About page, storage layout 3) was written
+  carefully but has NOT been compiled or run.** If the compiler reports an error, please send me the message.
+* Version number, codename and the number of games now live in `app_info.h`, so **your own `config.h`
+  (pin wiring, e.g. RX/TX buttons) can stay as it is** - this update does not need anything from it.
 
 ## Hardware / pins (all buttons go between the GPIO and GND; internal pull-ups are used)
 
@@ -69,21 +71,47 @@ The board games (Mines, Connect 4, TicTacToe) first show the final board; press 
 | Muncher | D-pad steer | 3 ghosts with different behaviour, power pellets, wrap-around tunnel, new mazes get faster |
 | Tanks | UP/DOWN angle, LEFT/RIGHT power, SELECT fire | wind, destructible terrain, CPU gets more accurate every round |
 
+## Two-player games (one console, two people)
+| Game | Player 1 | Player 2 | Rules |
+|---|---|---|---|
+| Pong 2P | UP / DOWN | LEFT = up, RIGHT = down | SELECT serves, first to 7. High score = longest rally. |
+| Connect 2P | LEFT/RIGHT, SELECT drop | same buttons, turn by turn | Solid discs vs hollow discs. Starter alternates. |
+| TicTac 2P | D-pad + SELECT | same buttons, turn by turn | X vs O. Starter alternates. |
+| Tanks 2P | UP/DOWN angle, LEFT/RIGHT power, SELECT fire | same, turn by turn | Wind, destructible terrain. |
+| Cycles 2P | UP = turn left, DOWN = turn right | LEFT = turn left, RIGHT = turn right | Light-cycle duel, first to 3 rounds. High score = longest round (s). |
+| Reversi 2P | D-pad + SELECT | same buttons, turn by turn | Dots show legal moves, automatic pass. High score = biggest winning margin. |
+
+Versus games show a session win counter (kept until the console is restarted). Games without a meaningful record
+(Connect 2P, TicTac 2P, Tanks 2P) have no high score.
+
 ## Settings (saved to EEPROM)
-Brightness (16 steps), Invert, Flip screen (rotates 180 degrees and swaps the D-pad so it still feels right when the console is turned around),
-Sound (buzzer, needs extra hardware), Difficulty, Button repeat speed, Animation speed (UI/menu animations only; game physics stays constant),
-Reset scores (with confirmation), Restore defaults (with confirmation), About / System info.
+Brightness (16 steps), Invert, Flip screen (rotates 180 degrees and swaps the D-pad),
+**Buzzer sound** (Off / Menu only / All), **Buzzer pitch** (Low / Normal / High, useful because buzzers differ),
+Difficulty, Button repeat speed, Animation speed (UI only), **Screen sleep** (Off / 30 s / 1 min / 5 min: the panel switches off
+when idle, any button wakes it and that press is ignored; it never sleeps during a running round),
+**Hold time** (how long you hold SELECT for pause/back: 0.4 / 0.6 / 0.9 s), **Splash screen** on/off,
+**Test sound**, Reset scores and Restore defaults (both with confirmation), About / System.
+Buzzer settings need the optional buzzer (extra hardware); everything else works on the base console.
+
+### Sounds
+About 30 effects (menu tick, confirm/back, pause/resume, jump, shoot, cannon, explosion, flag, reveal, disc drop, flip,
+munch, ghost, fanfare for a new high score, ...). Strong sounds are not cut off by weak ones. Nothing is played at power-up.
+
+### About / System page (scroll with UP/DOWN)
+Software (version, build date/time, core and SDK versions), hardware (chip ID, CPU, flash size/speed, boot reason),
+memory (free heap, largest block, fragmentation, sketch size, free program space), display and pins, current settings,
+storage (layout version, bytes used, scores saved, flash writes this boot, migration status) and session (uptime, rounds played).
 
 ## Storage
-64-byte EEPROM window: magic number + layout version + length + CRC-16 + settings + one high score per game.
+128-byte EEPROM window (room for 24 games): magic number + layout version + length + CRC-16 + settings + one high score per game.
 Invalid or old data is replaced by defaults. Flash is written only when data really changed, and only at safe moments
-(game over, leaving a menu), never during gameplay. Data saved by version 1.0 (settings and the first 7 high scores) is migrated automatically.
+(game over, leaving a menu), never during gameplay. Data saved by versions 1.0 and 1.1 (settings and high scores) is migrated automatically; the old on/off sound setting becomes Off / All.
 High scores from your very first original sketch are not migrated (layout and scoring changed).
 
 ## Code layout
 `ESP8266_OLED_Console.ino` (setup/loop only), `app.*` (state machine), `config.h`, `input.*`, `gfx.*`, `sound.*`,
 `storage.*`, `bitmaps.*`, `game.*` (base class + title/pause/game-over runner), `games.*` (registry),
-`game_dino/flappy/pong/breakout/snake/blocks/invaders/mines/connect4/tictactoe/muncher/tanks.cpp`, `main_menu.*`, `settings_menu.*`.
+`game_*.cpp` (18 games), `app_info.h`, `main_menu.*`, `settings_menu.*`.
 Games run on a fixed 33 ms step with `millis()`; there are no blocking delays in the loop. WiFi is switched off.
 
 ## Troubleshooting
